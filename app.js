@@ -1,124 +1,159 @@
-'use strict';
+"use strict";
+
+// variables for data taken from DOM and for rendering to DOM
+const inputForm = document.getElementById("inputForm");
+const cityInput = document.getElementById("cityInput");
+// const dateInput = document.getElementById("dateInput");
+const outputDiv = document.getElementById("output");
+const btnF = document.getElementById("btnF");
+const btnC = document.getElementById("btnC");
+const baseURL = "https://api.weatherapi.com/v1";
 
 console.log("Loading app.js");
 
-const output = document.getElementById("output");
-const inputArea = document.getElementById("inputArea");
-const prompt = document.getElementById("prompt");
-const chatHeader = document.getElementById("chatHeader");
-const chatWindow = document.getElementById("chatWindow");
-const workersURL =
-  "https://api.cloudflare.com/client/v4/accounts/449ef439dd95c2dff1dc8801a4850f2b/ai/run/@cf/meta/llama-3-8b-instruct";
-const corsURL = "https://corsproxy.io/?url=";
-const url = corsURL + workersURL;
-
-// "wakes up" the proxy key server before a text entry is made to speed up the initial response time 
-async function wakeUp() {
-    try {
-        fetch("https://proxy-key-0udy.onrender.com");
-    } catch (error) {
-        console.log("Didn't wake up")
-    }
-}
+//fetch function, awaits data from API so must be async, async must have trycatch
 
 async function getKey() {
   try {
+    //need to define it as a POST request, create options object
     const options = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: "{}",
     };
     const res = await fetch(
-      "https://proxy-key-0udy.onrender.com/get-key",
+      "https://proxy-key-0udy.onrender.com/get-key3",
       options,
     );
     if (!res.ok) {
-      throw new Error("bad");
+      throw new Error("Bad key fetch.");
     }
 
     const { key } = await res.json();
-    console.log(key);
+    // console.log("WeatherAPI.com API key: " + key);
     return key;
   } catch (error) {
-    console.log("Didn't get the key");
+    console.log("Unable to get key.");
   }
 }
 
-async function promptToAPI(url, options) {
+async function getWeather(locationInput) {
   try {
+    const apiKey = await getKey();
+    const options = {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    };
+    const url = baseURL + "/current.json?key=" + apiKey + "&q=" + locationInput;
     const res = await fetch(url, options);
     console.log(res);
     if (!res.ok) {
-      throw new Error("didn't get data");
+      renderError();
+      throw new Error("Didn't get data");
     }
-    const { result } = await res.json();
+    const result = await res.json();
+    console.log(result);
     return result;
   } catch (error) {
     console.log(error);
   }
 }
 
-function render(response, isBot) {
-    const p = document.createElement("p");
-    if (isBot) {
-        p.className = "max-w-[75%] mr-auto rounded-lg bg-gray-200 px-3 py-2 text-black"
-    } else {
-        p.className = "max-w-[75%] ml-auto rounded-la bg-blue-600 px-3 py-2 text-white"
-    }
-  p.textContent = response;
-  output.appendChild(p);
+function renderLoading() {
+  outputDiv.innerHTML = "";
+  const p = document.createElement("p");
+  p.textContent = "Loading...";
+  outputDiv.appendChild(p);
 }
 
+function renderF(weatherData) {
+  outputDiv.innerHTML = "";
+  const city = document.createElement("p");
+  const country = document.createElement("p");
+  const tempF = document.createElement("p");
+  const condition = document.createElement("p");
+  const img = document.createElement("img");
+
+  city.textContent = "City: " + weatherData.location.name;
+  country.textContent = "Country: " + weatherData.location.country;
+  tempF.textContent = "Current Temp: " + weatherData.current.temp_f + "°F";
+  condition.textContent =
+    "Current Conditions: " + weatherData.current.condition.text;
+  img.src = weatherData.current.condition.icon;
+  img.alt = weatherData.current.condition.text;
+
+  outputDiv.appendChild(city);
+  outputDiv.appendChild(country);
+  outputDiv.appendChild(tempF);
+  outputDiv.appendChild(condition);
+  outputDiv.appendChild(img);
+}
+
+function renderC(weatherData) {
+  outputDiv.innerHTML = "";
+  const city = document.createElement("p");
+  const country = document.createElement("p");
+  const tempF = document.createElement("p");
+  const condition = document.createElement("p");
+  const img = document.createElement("img");
+
+  city.textContent = "City: " + weatherData.location.name;
+  country.textContent = "Country: " + weatherData.location.country;
+  tempF.textContent = "Current Temp: " + weatherData.current.temp_c + "°F";
+  condition.textContent =
+    "Current Conditions: " + weatherData.current.condition.text;
+  img.src = weatherData.current.condition.icon;
+  img.alt = weatherData.current.condition.text;
+
+  outputDiv.appendChild(city);
+  outputDiv.appendChild(country);
+  outputDiv.appendChild(tempF);
+  outputDiv.appendChild(condition);
+  outputDiv.appendChild(img);
+}
+
+function renderError() {
+  outputDiv.innerHTML = "";
+  const p = document.createElement("p");
+  p.textContent = "Enter a valid City Name or US/UK/Canadian Postal Code.";
+  outputDiv.appendChild(p);
+}
+
+function clearField() {
+  cityInput.value = "";
+}
+
+//  getWeather()
+// main function, calls other function in orderly readable logic block, awaits so much be async, async must have trycatch
+
 async function main() {
-    render("Loading...", true);
-    await wakeUp();
-    output.textContent = ""
-    render("How can I help you?", true)
-
-  const messages = [
-    {
-      role: "system",
-      content:
-        "You are a sales rep trying to make sales on Clarinets, Saxophones, Drums, Guitars, Trumpets, trombones, and french horns. You do not go off topic, you only reply with the products or info about what a product is. Never respond with more than 30 words and never respond with a list of products.",
-    },
-  ];
   try {
-    inputArea.addEventListener("submit", async (e) => {
+    // event listener to render loading please wait message, get weather data, and render results from form input submit
+
+    btnF.addEventListener("click", async (e) => {
+      //prevents refreshing page
       e.preventDefault();
-      const key = await getKey();
-      const workersEndpoint = url;
-      messages.push({ role: "user", content: prompt.value });
-      console.log(messages);
-      const promptBody = {
-        messages,
-      };
-
-      const options = {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${key}`,
-        },
-        body: JSON.stringify(promptBody),
-      };
-
-      const { response } = await promptToAPI(url, options);
-      //   const response = "response"
-      messages.push({ role: "assistant", content: response });
-      render(prompt.value, false);
-      render(response, true);
-    });
-      
-    //   collapsible chat bot box
-      let isOpen = true;
-    chatHeader.addEventListener("click", () => {
-      isOpen = !isOpen;
-      if (isOpen) {
-        chatWindow.classList.remove("max-h-[50px]");
-        chatWindow.classList.add("max-h-[425px]");
+      if (cityInput.value) {
+        renderLoading();
+        const weatherData = await getWeather(cityInput.value);
+        renderF(weatherData);
+        clearField();
       } else {
-        chatWindow.classList.remove("max-h-[425px]");
-        chatWindow.classList.add("max-h-[50px]");
+        renderError();
+      }
+    });
+    btnC.addEventListener("click", async (e) => {
+      //prevents refreshing page
+      e.preventDefault();
+      if (cityInput.value) {
+        renderLoading();
+        const weatherData = await getWeather(cityInput.value);
+        renderC(weatherData);
+        clearField();
+      } else {
+        renderError();
       }
     });
   } catch (error) {
